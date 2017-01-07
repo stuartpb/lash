@@ -73,10 +73,10 @@ Since unpacking is a really common construction (just like getting the length of
 arglist... -- equivalent to table.unpack(arglist)
 ```
 
-The `$` operator provides syntactic sugar for spawning a process, with shell-style string specification. It is terminated by a semicolon, and is escaped with parentheses (which correspond to the returned values of the contained Lash expression).
+The `$` operator provides syntactic sugar for spawning a process, with shell-style string specification. It is terminated by an end-of-line, semicolon, or closing parenthesis (matching an open parenthesis preceding it), and can contain embedded Lash expression within matched parentheses:
 
 ```
-$ foo bar (baz, zar) "quux\n$j"'stuff'
+$ foo bar (baz, zar) "quux\n"(j)'stuff'
 ```
 
 is equivalent to something like (since all the details are in the air right now):
@@ -86,31 +86,15 @@ return proc.spawn('foo', {fds = {[0] = stdin, stdout, stderr}},
   'bar', baz, zar, "quux\n"..j..'stuff'):wait()
 ```
 
-`$expansion` is only allowed for variable names inside double-quoted strings, and frankly even then I'm reluctant to allow it.
+Single-quoted strings take everything up to the next single quote literally. Backslash escaping outside of single-quotes works as they do for regular Lua single/double-quoted string syntax (all non-letter characters are escapes, some letter characters like `\n` are special). Arguments are separated by spans of whitespace. Everything not separated by unquoted space is considered part of one string. Quoted strings may contain newlines (as well as other forms of whitespace). Backslashes can escape semicolons or newlines (escaped unquoted newlines are treated as argument-separating whitespace unless escaped by a `\z`, where they will be ignored - an encoded newline, outside of a quoted string, would have to be preceded by `\n\z`, to literally specify a newline and then ignore the literal newline as separating space).
 
-Double-quoted strings accept all backslash-escape sequences that Lua does. Single-quoted strings take everything up to the next single quote literally. Backslashes outside of quotes escape single characters. Everything not separated by unquoted space is considered part of one string.
+Parenthesized expressions isolated from any concatenating values (ie. with whitespace on both sides) may return multiple values to include multiple arguments. (Expressions that may return multiple values that intend to represent only one argument value should use a second pair of parentheses within the expression, eg. `((string.gsub(foo,'%w','A')))`.) 
 
-Expressions returning anything other than a single string as part of a string, rather than being stringified and concatenated, are treated as an error.
+Parenthesized expressions placed adjacent to a concatenating value without argument-separating space (eg. `(foo)bar`) are treated as an error if returning anything other than a single string or number, rather than discarding subsequent values, applying `tostring`, defining multiple arguments, and/or concatenting adjacent strings to the first/last/every value. Any of these behaviors, if desired, can be achieved by performing the applicable transformation within the context of the parenthesized expression.
 
-Wildcard characters only apply outside of *any* quoting, and even then, again, I'm not sure I want it to apply. (Also, if they *are* implemented, it'll be as nullglobs, where no matches are evaluated to no strings.) I think globbing would probably be better handled with an explicit function call.
+There is **no** `$expansion`, even in quoted strings. The *only* place where the text that's inside a quoted string is interpreted as something other than itself is an escape character preceded by a backslash. If you want an expression as part of a quoted string, you have to end the quoting and use parentheses (or, really, just don't use quotes at all - since Lash pretty much only gives printing characters a non-literal meaning within embedded parenthetical expressions, quotes are really only called for in the rare situation where your strings embed spaces and/or parentheses).
 
-Variants:
-
-`$$` returns the output of the command as a string, like command substitution:
-
-```
-local b = buffer.new()
-proc.spawn('foo', {fds = {[0] = stdin, b, stderr}},
-  'bar', baz, zar, "quux\n"..j..'stuff'):wait()
-return b:finish()
-```
-
-`$&` returns just the process handle:
-
-```
-return proc.spawn('foo', {fds = {[0] = stdin, stdout, stderr}},
-  'bar', baz, zar, "quux\n"..j..'stuff')
-```
+Wildcard characters only apply outside of *any* quoting, and even then, again, I'm not sure I want it to apply. (Also, if they *are* implemented, it'll be as nullglobs, where no matches are evaluated to no strings.) I think globbing would probably be better handled with an explicit function call (see note above about Lash being meant to have almost no non-literal characters outside of quoting beond spaces and parentheses).
 
 The `>` and `<` operators (specified *before* the command), in addition to accepting filenames, accept buffers, file descriptors, pipe objects, `nil` (as a standin for `/dev/null`) etc via `()`:
 
@@ -139,3 +123,21 @@ $ convert (imbuf) -thumbnail 240x240 catthumb.jpg
 ```
 
 The magic here will probably lie somewhere inside `proc.spawn`, so there'd be nothing particularly illuminating about describing the equivalent long-form version.
+
+Variants:
+
+`$$` returns the output of the command as a string, like command substitution:
+
+```
+local b = buffer.new()
+proc.spawn('foo', {fds = {[0] = stdin, b, stderr}},
+  'bar', baz, zar, "quux\n"..j..'stuff'):wait()
+return b:finish()
+```
+
+`$&` returns just the process handle:
+
+```
+return proc.spawn('foo', {fds = {[0] = stdin, stdout, stderr}},
+  'bar', baz, zar, "quux\n"..j..'stuff')
+```
