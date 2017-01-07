@@ -73,7 +73,7 @@ Since unpacking is a really common construction (just like getting the length of
 arglist... -- equivalent to table.unpack(arglist)
 ```
 
-The `$` operator provides syntactic sugar for spawning a process, with shell-style string specification. It is terminated by an end-of-line, semicolon, or closing parenthesis (matching an open parenthesis preceding it), and can contain embedded Lash expression within matched parentheses:
+The `$` operator provides syntactic sugar for spawning a process, with shell-style string specification. It is terminated by an end-of-line, semicolon, or closing parenthesis (matching an open parenthesis preceding it), and can contain embedded Lash expressions within matched parentheses:
 
 ```
 $ foo bar (baz, zar) "quux\n"(j)'stuff'
