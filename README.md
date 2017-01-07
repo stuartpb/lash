@@ -94,8 +94,6 @@ Parenthesized expressions placed adjacent to a concatenating value without argum
 
 There is **no** `$expansion`, even in quoted strings. The *only* place where the text that's inside a quoted string is interpreted as something other than itself is an escape character preceded by a backslash. If you want an expression as part of a quoted string, you have to end the quoting and use parentheses (or, really, just don't use quotes at all - since Lash pretty much only gives printing characters a non-literal meaning within embedded parenthetical expressions, quotes are really only called for in the rare situation where your strings embed spaces and/or parentheses).
 
-File descriptors in embedded argument expression values are coerced to the equivalent `/dev/fdX` name, with anonymous pipes and process handles (from `proc.spawn()`) attaching and coercing to the appropriate fd63-and-up descriptors (akin to how Bash does process substitution). These *may* be concatenated, for the purpose of named options which take file descriptors, like `--output=(logfile)`.
-
 Wildcard characters only apply outside of *any* quoting, and even then, again, I'm not sure I want it to apply. (Also, if they *are* implemented, it'll be as nullglobs, where no matches are evaluated to no strings.) I think globbing would probably be better handled with an explicit function call (see note above about Lash being meant to have almost no non-literal characters outside of quoting beond spaces and parentheses).
 
 The `>` and `<` operators (specified *before* the command), in addition to accepting filenames, accept buffers, file descriptors, pipe objects, `nil` (as a standin for `/dev/null`) etc via `()`:
@@ -114,7 +112,7 @@ proc.spawn('foo', {fds = {[0] = logs, stdout, stderr}},
   'bar', baz, zar, "quux\n"..j..'stuff'):wait()
 ```
 
-Buffers can also be used as file descriptors (like Bash's process substitution) by specifying them in `()` in the body of a command:
+File descriptors in embedded argument expression values are coerced to the equivalent `/dev/fdX` name, with buffers, anonymous pipes, and process handles (from `proc.spawn()`) attaching and coercing to the appropriate fd63-and-up descriptors (akin to how Bash does process substitution). These *may* be concatenated with strings, for the purpose of named options which take file descriptors, like `--output=(logfile)`.
 
 ```
 local imbuf = buffer() -- since this is the same thing as buffer.new()
@@ -124,7 +122,7 @@ fullsize:write(imbuf):close();
 $ convert (imbuf) -thumbnail 240x240 catthumb.jpg
 ```
 
-The magic here will probably lie somewhere inside `proc.spawn`, so there'd be nothing particularly illuminating about describing the equivalent long-form version.
+This will probably be surfaced with some kind of function like `fdify` (or whatever the actual corresponding syscall is called), which `proc.spawn` will also apply if receiving one of these attachable types as an argument value.
 
 Variants:
 
